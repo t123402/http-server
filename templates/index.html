@@ -6,6 +6,12 @@
 		<title>首頁</title>
 	</head>
 	<body>
+		{{if .IsLoggedIn}}
+		<p>Welcome back, {{.Username}}!</p>
+		<a href="/auth/logout">Logout</a>
+		{{else}}
+		<p>Welcome! Please <a href="/login">login</a>.</p>
+		{{end}}
 		<h1>歡迎來到首頁</h1>
 		<nav>
 			<a href="/about">About</a> |

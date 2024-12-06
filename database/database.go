@@ -6,7 +6,6 @@ import (
 	"os"
 
 	_ "github.com/go-sql-driver/mysql" // MySQL/MariaDB 驅動
-	"github.com/joho/godotenv"
 )
 
 // DB 是全局變量，用於存儲資料庫連線對象
@@ -16,13 +15,6 @@ var DB *sql.DB
 // InitDB 初始化資料庫連線
 func InitDB() {
 	var err error
-
-	// 載入 .env 檔案中的環境變數
-	err = godotenv.Load()
-	if err != nil {
-		// 如果 .env 文件無法加載，程序無法繼續執行
-		panic(fmt.Sprintf("無法載入 .env 文件: %v", err))
-	}
 
 	// 從環境變數中獲取資料庫連線字串（DSN）
 	dsn := os.Getenv("DATABASE_DSN")

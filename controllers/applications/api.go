@@ -1,31 +1,11 @@
-package controllers
+package applications
 
 import (
 	"encoding/json"
-	"html/template"
-	"http-server/database"
+	"http-server/models"
 	"net/http"
 	"strings"
 )
-
-// Item 是用來表示 items 資料表中的一個資料結構
-type Item struct {
-	ID    int    `json:"id"`
-	Value string `json:"value"`
-}
-
-// ItemsHandler 處理渲染 items 頁面的請求
-func ItemsHandler(w http.ResponseWriter, r *http.Request) {
-	// 加載模板檔案
-	tmpl, err := template.ParseFiles("templates/item.html")
-	if err != nil {
-		// 如果模板檔案無法加載，返回 HTTP 500 錯誤
-		http.Error(w, "Cannot load template", http.StatusInternalServerError)
-		return
-	}
-	// 渲染模板並輸出到回應
-	tmpl.Execute(w, nil)
-}
 
 // 新增資料
 func AddItemHandler(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +16,7 @@ func AddItemHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 解析請求體中的 JSON，並將其映射到 Item 結構
-	var item Item
+	var item models.Item
 	err := json.NewDecoder(r.Body).Decode(&item)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -44,9 +24,7 @@ func AddItemHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 將資料插入到資料庫
-	query := "INSERT INTO items (value) VALUES (?)"
-	_, err = database.DB.Exec(query, item.Value)
-	if err != nil {
+	if err := models.AddItem(item.Value); err != nil {
 		// 插入資料失敗，返回 HTTP 500 錯誤
 		http.Error(w, "Failed to insert item", http.StatusInternalServerError)
 		return
@@ -58,26 +36,11 @@ func AddItemHandler(w http.ResponseWriter, r *http.Request) {
 
 // 查詢資料
 func GetItemsHandler(w http.ResponseWriter, r *http.Request) {
-	// 從資料庫中查詢所有資料
-	rows, err := database.DB.Query("SELECT id, value FROM items")
+	items, err := models.GetAllItems()
 	if err != nil {
 		// 查詢失敗，返回 HTTP 500 錯誤
 		http.Error(w, "Failed to fetch items", http.StatusInternalServerError)
 		return
-	}
-	defer rows.Close() // 確保查詢結果的資源在使用完後被正確釋放
-
-	var items []Item
-	// 遍歷查詢結果，將每一行映射到 Item 結構，並添加到 items 列表中
-	for rows.Next() {
-		var item Item
-		err := rows.Scan(&item.ID, &item.Value)
-		if err != nil {
-			// 映射失敗，返回 HTTP 500 錯誤
-			http.Error(w, "Failed to parse item", http.StatusInternalServerError)
-			return
-		}
-		items = append(items, item)
 	}
 
 	// 將 items 列表以 JSON 格式返回給用戶
@@ -102,9 +65,7 @@ func DeleteItemHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 執行刪除操作
-	query := "DELETE FROM items WHERE id = ?"
-	_, err := database.DB.Exec(query, id)
-	if err != nil {
+	if err := models.DeleteItem(id); err != nil {
 		// 刪除失敗，返回 HTTP 500 錯誤
 		http.Error(w, "Failed to delete item", http.StatusInternalServerError)
 		return
@@ -142,9 +103,7 @@ func UpdateItemHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 更新資料庫中的資料
-	query := "UPDATE items SET value = ? WHERE id = ?"
-	_, err := database.DB.Exec(query, item.Value, id)
-	if err != nil {
+	if err := models.UpdateItem(id, item.Value); err != nil {
 		// 更新失敗，返回 HTTP 500 錯誤
 		http.Error(w, "Failed to update item", http.StatusInternalServerError)
 		return

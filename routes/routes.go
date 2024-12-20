@@ -27,4 +27,6 @@ func authRoutes() {
 	http.HandleFunc("/auth/register", applications.RegisterHandler)
 	http.HandleFunc("/auth/login", applications.LoginHandler)
 	http.HandleFunc("/auth/logout", applications.LogoutHandler)
+	http.Handle("/auth/me", applications.Authenticate(http.HandlerFunc(applications.MeHandler)))
+
 }

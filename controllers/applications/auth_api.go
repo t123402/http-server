@@ -101,6 +101,9 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	// 保存到 Session
 	session, _ := config.Store.Get(r, "session-name") // 創建/獲取 Session
 	session.Values["username"] = req.Username  // 保存用戶名到 Session
+	session.Values["id"] = "1"
+	session.Values["nickname"] = "小可"
+	session.Values["gender"] = "M"
 	seserr := session.Save(r, w)                  // 保存 Session
 	if seserr != nil {
 		fmt.Printf("Session save error: %v\n", seserr)
@@ -118,5 +121,31 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	session.Options.MaxAge = -1 // 設置過期時間，刪除 Session
 	session.Save(r, w)
 
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// 定義 MeHandler，返回用戶 Session 資訊
+func MeHandler(w http.ResponseWriter, r *http.Request) {
+	// 從 Context 中取得用戶名
+	username, ok := r.Context().Value(UsernameContextKey).(string)
+	if !ok || username == "" {
+		http.Error(w, "未登入", http.StatusUnauthorized)
+		return
+	}
+
+	// 假設 Session 中保存了其他用戶資訊
+	session, _ := config.Store.Get(r, "session-name")
+	userID, _ := session.Values["id"].(string)
+	nickname, _ := session.Values["nickname"].(string)
+	gender, _ := session.Values["gender"].(string)
+
+	// 返回用戶資訊
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"id":       userID,
+		"username": username,
+		"nickname": nickname,
+		"gender":   gender,
+	})
 }

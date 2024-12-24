@@ -7,12 +7,18 @@ import (
 	"http-server/config"
 	"http-server/models"
 	"net/http"
+	"time"
 )
 
 type RegisterRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Role     string `json:"role"`
+	Username  string `json:"username"`
+	Password  string `json:"password"`
+	Nickname  string `json:"nickname"`
+	Firstname string `json:"firstname"`
+	Lastname  string `json:"lastname"`
+	Email     string `json:"email"`
+	Gender    string `json:"gender"`
+	Birthday  string `json:"birthday"`
 }
 
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
@@ -27,15 +33,22 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 驗證輸入
-	if req.Username == "" || req.Password == "" {
-		http.Error(w, "All fields are required", http.StatusBadRequest)
-		return
+	// 解析生日
+	var birthday *time.Time // 使用指針處理非必填情況
+	if req.Birthday != "" {
+		parsedBirthday, err := time.Parse("2006-01-02", req.Birthday)
+		if err != nil {
+			fmt.Printf("Birthday parsing error: %v\n", err)
+			http.Error(w, "Invalid birthday format. Use YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+		birthday = &parsedBirthday
 	}
 
-	// 如果 Role 是空值，給它一個預設值 1
-	if req.Role == "" {
-		req.Role = "1"
+	// 驗證輸入
+	if req.Username == "" || req.Password == "" {
+		http.Error(w, "Username and Password are required", http.StatusBadRequest)
+		return
 	}
 
 	// 加密密碼
@@ -45,13 +58,24 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 新增用戶
-	err = models.AddUser(req.Username, string(hashedPassword), req.Role)
+	// 新增用戶 Role給它一個預設值 87
+	err = models.AddUser(req.Username, string(hashedPassword), "87")
 	if err != nil {
 		if sql.ErrNoRows == err {
 			http.Error(w, "User already exists", http.StatusConflict)
 		} else {
 			http.Error(w, "Failed to create user", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// 新增用戶資訊
+	err = models.AddProfile(req.Username, req.Nickname, req.Firstname, req.Lastname, req.Email, req.Gender, birthday)
+	if err != nil {
+		if sql.ErrNoRows == err {
+			http.Error(w, "Profile already exists", http.StatusConflict)
+		} else {
+			http.Error(w, "Failed to create profile", http.StatusInternalServerError)
 		}
 		return
 	}
@@ -63,10 +87,6 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 type LoginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
-}
-
-type LoginResponse struct {
-	Token string `json:"token"`
 }
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +107,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		if err == sql.ErrNoRows {
 			http.Error(w, "User not found", http.StatusUnauthorized)
 		} else {
-			http.Error(w, "Database error", http.StatusInternalServerError)
+			http.Error(w, "User Database error", http.StatusInternalServerError)
 		}
 		return
 	}
@@ -98,13 +118,37 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 查詢用戶資訊
+	profile, err := models.GetProfileByUsername(user.Username)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Profile not found", http.StatusUnauthorized)
+		} else {
+			http.Error(w, "Profile Database error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// 查詢用戶角色
+	role, err := models.GetRoleById(user.RoleID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Role not found", http.StatusUnauthorized)
+		} else {
+			http.Error(w, "Role Database error", http.StatusInternalServerError)
+		}
+		return
+	}
+
 	// 保存到 Session
 	session, _ := config.Store.Get(r, "session-name") // 創建/獲取 Session
-	session.Values["username"] = req.Username  // 保存用戶名到 Session
-	session.Values["id"] = "1"
-	session.Values["nickname"] = "小可"
-	session.Values["gender"] = "M"
-	seserr := session.Save(r, w)                  // 保存 Session
+	session.Values["username"] = user.Username        // 保存用戶名到 Session
+	session.Values["id"] = user.ID
+	session.Values["nickname"] = profile.Nickname
+	session.Values["roleid"] = role.ID
+	session.Values["rolename"] = role.Name
+	session.Values["gender"] = profile.Gender
+	seserr := session.Save(r, w) // 保存 Session
 	if seserr != nil {
 		fmt.Printf("Session save error: %v\n", seserr)
 		http.Error(w, "Failed to save session", http.StatusInternalServerError)
@@ -135,17 +179,21 @@ func MeHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 假設 Session 中保存了其他用戶資訊
 	session, _ := config.Store.Get(r, "session-name")
-	userID, _ := session.Values["id"].(string)
+	userID, _ := session.Values["id"].(int)
 	nickname, _ := session.Values["nickname"].(string)
+	roleid, _ := session.Values["roleid"].(int)
+	rolename, _ := session.Values["rolename"].(string)
 	gender, _ := session.Values["gender"].(string)
 
 	// 返回用戶資訊
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
-		"id":       userID,
+		"id":       fmt.Sprintf("%d", userID),
 		"username": username,
 		"nickname": nickname,
+		"roleid":   fmt.Sprintf("%d", roleid),
+		"rolename": rolename,
 		"gender":   gender,
 	})
 }

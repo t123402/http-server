@@ -1,40 +1,42 @@
 package models
 
 import (
+	"fmt"
 	"http-server/database"
+	"time"
 )
 
-// User 表示 users 資料表中的一條記錄
 type Profile struct {
-	UserID		int
-	Username	string
-	Nickname	string
-	Firstname	string
-	Lastname	string
-	Email		string
-	Gender		string
-	Birthday	string
+	UserID    int
+	Username  string
+	Nickname  string
+	Firstname string
+	Lastname  string
+	Email     string
+	Gender    string
+	Birthday  *time.Time
 }
 
-// AddUser 新增用戶
-func AddSUser(username, passwordHash, roleID string) error {
-	query := "INSERT INTO users (username, password_hash, role_id) VALUES (?, ?, ?)"
-	_, err := database.DB.Exec(query, username, passwordHash, roleID)
+// AddProfile 新增用戶資訊
+func AddProfile(username, nickname, firstname, lastname, email, gender string, birthday *time.Time) error {
+	query := "INSERT INTO profiles (username, nickname, firstname, lastname, email, gender, birthday) VALUES (?, ?, ?, ?, ?, ?, ?)"
+	_, err := database.DB.Exec(query, username, nickname, firstname, lastname, email, gender, birthday)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// GetUserByUsername 根據用戶名查詢用戶
-func GetUserSByUsername(username string) (*User, error) {
-	query := "SELECT id, username, password_hash, role_id FROM users WHERE username = ?"
+// GetProfileByUsername 根據用戶名查詢用戶資訊
+func GetProfileByUsername(username string) (*Profile, error) {
+	query := "SELECT user_id, username, nickname, firstname, lastname, email, gender, birthday FROM profiles WHERE username = ?"
 	row := database.DB.QueryRow(query, username)
 
-	var user User
-	err := row.Scan(&user.ID, &user.Username, &user.PasswordHash, &user.RoleID)
+	var profile Profile
+	err := row.Scan(&profile.UserID, &profile.Username, &profile.Nickname, &profile.Firstname, &profile.Lastname, &profile.Email, &profile.Gender, &profile.Birthday)
 	if err != nil {
+		fmt.Printf("Scan error: %v\n", err) // 輸出具體的錯誤
 		return nil, err
 	}
-	return &user, nil
+	return &profile, nil
 }

@@ -7,6 +7,7 @@ import (
 	"http-server/config"
 	"http-server/models"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -196,4 +197,105 @@ func MeHandler(w http.ResponseWriter, r *http.Request) {
 		"rolename": rolename,
 		"gender":   gender,
 	})
+}
+
+func ProfileHandler(w http.ResponseWriter, r *http.Request) {
+	username := strings.TrimPrefix(r.URL.Path, "/auth/profile/")
+	if username == "" {
+		// 如果未提供 Username，返回 HTTP 400 錯誤
+		http.Error(w, "Missing Username", http.StatusBadRequest)
+		return
+	}
+
+	// 查詢用戶資訊
+	profile, err := models.GetProfileByUsername(username)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Profile not found", http.StatusUnauthorized)
+		} else {
+			http.Error(w, "Profile Database error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Nickname  string `json:"nickname"`
+		Firstname string `json:"firstname"`
+		Lastname  string `json:"lastname"`
+		Email     string `json:"email"`
+		Gender    string `json:"gender"`
+		Birthday  string `json:"birthday"`
+	}{
+		Nickname:  profile.Nickname,
+		Firstname: profile.Firstname,
+		Lastname:  profile.Lastname,
+		Email:     profile.Email,
+		Gender:    profile.Gender,
+		Birthday:  profile.Birthday.Format("2006-01-02"), // 格式化日期
+	})
+}
+
+type UpdateProfileRequest struct {
+	Nickname  string `json:"nickname"`
+	Firstname string `json:"firstname"`
+	Lastname  string `json:"lastname"`
+	Email     string `json:"email"`
+	Gender    string `json:"gender"`
+	Birthday  string `json:"birthday"`
+}
+
+// 修改資料
+func UpdateProfileHandler(w http.ResponseWriter, r *http.Request) {
+	// 確認請求方法是否為 PUT
+	if r.Method != http.MethodPut {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	username := strings.TrimPrefix(r.URL.Path, "/auth/profile/update/")
+	if username == "" {
+		// 如果未提供 Username，返回 HTTP 400 錯誤
+		http.Error(w, "Missing Username", http.StatusBadRequest)
+		return
+	}
+
+	var req UpdateProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// 解析生日
+	var birthday *time.Time
+	if req.Birthday != "" {
+		parsedBirthday, err := time.Parse("2006-01-02", req.Birthday)
+		if err != nil {
+			fmt.Printf("Birthday parsing error: %v\n", err)
+			http.Error(w, "Invalid birthday format. Use YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+		birthday = &parsedBirthday
+	}
+
+	// 更新用戶資訊
+	if err := models.UpdateProfileByUsername(username, req.Nickname, req.Firstname, req.Lastname, req.Email, req.Gender, birthday); err != nil {
+		// 更新失敗，返回 HTTP 500 錯誤
+		http.Error(w, "Failed to update profile", http.StatusInternalServerError)
+		return
+	}
+
+	// 獲取當前 Session
+	session, _ := config.Store.Get(r, "session-name")
+	session.Values["nickname"] = req.Nickname
+	session.Values["gender"] = req.Gender
+	seserr := session.Save(r, w) // 保存 Session
+	if seserr != nil {
+		fmt.Printf("Session save error: %v\n", seserr)
+		http.Error(w, "Failed to save session", http.StatusInternalServerError)
+		return
+	}
+
+	// 返回 HTTP 200 OK，表示更新成功
+	w.WriteHeader(http.StatusOK)
 }

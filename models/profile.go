@@ -40,3 +40,23 @@ func GetProfileByUsername(username string) (*Profile, error) {
 	}
 	return &profile, nil
 }
+
+// UpdateProfileByUsername 根據用戶名更新用戶資訊
+func UpdateProfileByUsername(username, nickname, firstname, lastname, email, gender string, birthday *time.Time) error {
+	query := `
+		UPDATE profiles 
+		SET nickname = ?, 
+			firstname = ?, 
+			lastname = ?, 
+			email = ?, 
+			gender = ?, 
+			birthday = ? 
+		WHERE username = ?
+	`
+	_, err := database.DB.Exec(query, nickname, firstname, lastname, email, gender, birthday, username)
+	if err != nil {
+		fmt.Printf("Update error: %v\n", err) // 輸出具體的錯誤
+		return err
+	}
+	return nil
+}

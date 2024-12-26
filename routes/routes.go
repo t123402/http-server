@@ -29,5 +29,6 @@ func authRoutes() {
 	http.HandleFunc("/auth/logout", applications.LogoutHandler)
 	http.HandleFunc("/auth/profile/", applications.ProfileHandler)
 	http.HandleFunc("/auth/profile/update/", applications.UpdateProfileHandler)
+	http.HandleFunc("/auth/change-password/", applications.ChangePasswordHandler)
 	http.Handle("/auth/me", applications.Authenticate(http.HandlerFunc(applications.MeHandler)))
 }

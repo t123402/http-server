@@ -299,3 +299,63 @@ func UpdateProfileHandler(w http.ResponseWriter, r *http.Request) {
 	// 返回 HTTP 200 OK，表示更新成功
 	w.WriteHeader(http.StatusOK)
 }
+
+type ChangePasswordRequest struct {
+	OldPassword string `json:"oldPassword"`
+	NewPassword string `json:"newPassword"`
+}
+
+func ChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	username := strings.TrimPrefix(r.URL.Path, "/auth/change-password/")
+	if username == "" {
+		// 如果未提供 Username，返回 HTTP 400 錯誤
+		http.Error(w, "Missing Username", http.StatusBadRequest)
+		return
+	}
+
+	var req ChangePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// 查詢用戶
+	user, err := models.GetUserByUsername(username)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "User not found", http.StatusUnauthorized)
+		} else {
+			http.Error(w, "User Database error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// 驗證密碼
+	if !CheckPasswordHash(req.OldPassword, user.PasswordHash) {
+		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+
+	// 加密密碼
+	hashedPassword, err := HashPassword(req.NewPassword)
+	if err != nil {
+		http.Error(w, "Failed to encrypt password", http.StatusInternalServerError)
+		return
+	}
+
+	// 更新用戶密碼
+	if err := models.ChangePasswordByUsername(username, hashedPassword); err != nil {
+		// 更新失敗，返回 HTTP 500 錯誤
+		http.Error(w, "Failed to change password", http.StatusInternalServerError)
+		return
+	}
+
+	// 返回成功響應
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w, "Change password successful")
+}

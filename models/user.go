@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"http-server/database"
 )
 
@@ -33,4 +34,19 @@ func GetUserByUsername(username string) (*User, error) {
 		return nil, err
 	}
 	return &user, nil
+}
+
+// ChangePasswordByUsername 根據用戶名更新密碼
+func ChangePasswordByUsername(username, passwordHash string) error {
+	query := `
+		UPDATE users
+		SET password_hash = ?
+		WHERE username = ?
+	`
+	_, err := database.DB.Exec(query, passwordHash, username)
+	if err != nil {
+		fmt.Printf("Update error: %v\n", err) // 輸出具體的錯誤
+		return err
+	}
+	return nil
 }

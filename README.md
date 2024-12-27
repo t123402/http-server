@@ -1,6 +1,10 @@
 # HTTP Server
 
-這是一個用 Go 語言開發的簡單 HTTP Server。它可以處理靜態頁面顯示和 API 請求，並與資料庫進行交互，實現基本的 CRUD 操作。
+這是一個用 Go 語言開發的簡單 HTTP Server。它可以處理 API 的請求，並與資料庫進行交互，實現基本的 CRUD 操作。
+
+# React
+
+用 React 作為前端框架，並採用了 Tailwind CSS 來設計樣式。
 
 # 使用 Nginx 配置 HTTPS
 
@@ -13,4 +17,4 @@ ps 目前沒有網域 沒辦法設置 https 只能先用公有 IP 來訪問 http
 
 # 會員系統
 
-會員系統建置中...
+提供簡單的會員註冊、登入、資料管理、修改密碼等功能。

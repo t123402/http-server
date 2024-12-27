@@ -1,4 +1,4 @@
-package applications
+package controllers
 
 import (
 	"context"
@@ -29,7 +29,6 @@ func Authenticate(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
-
 
 func HashPassword(password string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
